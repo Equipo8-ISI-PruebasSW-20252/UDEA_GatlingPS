@@ -27,8 +27,8 @@ class CargaSolicitudPrestamo extends Simulation {
     .exec(
       http("POST Solicitud de Préstamo")
         .post("/requestloan.htm")
-        .formParam("amount", amount * 500)
-        .formParam("downPayment", amount * 50)
+        .formParam("amount", amount * 50)    //prestamo de 50
+        .formParam("downPayment", amount * 10)    //pago inicial de 10
         .formParam("fromAccountId", fromAccountId)
         .check(status.is(200))
         .check(regex("Loan Request Processed").exists)
