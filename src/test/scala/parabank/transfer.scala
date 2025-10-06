@@ -16,7 +16,7 @@ class TransferSim extends Simulation {
   // 2️Feeder desde CSV
   // Archivo: src/test/resources/data/transferData.csv
   // Columnas: fromAccountId,toAccountId,amount
-  val feeder = csv("src/test/resources/data/transferData.csv").circular
+  val feeder = csv("transferData.csv").circular
 
   // 3️Escenario de prueba: Transferencias simultáneas
   val scn = scenario("Escalabilidad en Transferencias Simultáneas")
