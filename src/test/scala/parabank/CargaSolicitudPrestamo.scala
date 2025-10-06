@@ -18,19 +18,19 @@ class CargaSolicitudPrestamo extends Simulation {
     .exec(
       http("POST Solicitud de Préstamo")
         .post("/requestloan")
-        .formParam("customerId", username)      // usuario del préstamo
-        .formParam("amount", amount * 500)      // monto base adaptado (usa Data.amount)
-        .formParam("downPayment", amount * 50)  // pago inicial proporcional
+        .formParam("customerId", username)
+        .formParam("amount", amount * 500)
+        .formParam("downPayment", amount * 50)
         .formParam("fromAccountId", fromAccountId)
         .check(status.is(200))
-        .check(regex("Loan Request Processed").exists.optional) // valida respuesta esperada
+        .check(regex("Loan Request Processed").exists) 
     )
-    .pause(1.second) // pausa entre solicitudes para simular comportamiento real
+    .pause(1.second)
 
-  // Configuración de usuarios concurrentes y duración
+  // Configuración de usuarios y carga
   setUp(
     solicitudPrestamo.inject(
-      rampUsers(150) during (30.seconds) // simula 150 usuarios en 30s
+      rampUsers(150) during (30.seconds)
     )
   )
   .protocols(httpProtocol)
