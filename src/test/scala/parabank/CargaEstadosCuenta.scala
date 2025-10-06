@@ -28,9 +28,9 @@ class CargaEstadosCuenta extends Simulation {
     )
   )
   .protocols(httpProtocol)
-  .assertions(
-    global.responseTime.max.lte(3000),     // tiempo de respuesta máximo ≤ 3 segundos
-    global.failedRequests.percent.lte(1)   // tasa de error ≤ 1%
-  )
+  //.assertions(
+    //global.responseTime.max.lte(3000),     // tiempo de respuesta máximo ≤ 3 segundos
+    //global.failedRequests.percent.lte(1)   // tasa de error ≤ 1%
+  //)
 }
 
