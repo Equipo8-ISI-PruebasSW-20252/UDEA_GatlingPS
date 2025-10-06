@@ -9,7 +9,7 @@ class CargaSolicitudPrestamo extends Simulation {
 
   // Configuración del protocolo HTTP
   val httpProtocol = http
-    .baseUrl(url)
+    .baseUrl(loanUrl)
     .acceptHeader("application/json")
     .check(status.is(200))
 
