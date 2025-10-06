@@ -10,7 +10,7 @@ class CargaSolicitudPrestamo extends Simulation {
   val httpProtocol = http
     .baseUrl(loanUrl)
     .acceptHeader("application/json, text/html")
-    .inferHtmlResources() // 🔹 Captura recursos como cookies y sesiones
+    .inferHtmlResources() // 🔹 Captura recursos como cookies y sesione
     .check(status.not(500))
 
   // Escenario: login + solicitud de préstamo
