@@ -7,27 +7,34 @@ import parabank.Data._
 
 class CargaSolicitudPrestamo extends Simulation {
 
-  // Configuración del protocolo HTTP
   val httpProtocol = http
     .baseUrl(loanUrl)
-    .acceptHeader("application/json")
-    .check(status.is(200))
+    .acceptHeader("application/json, text/html")
+    .check(status.not(500))
 
-  // Escenario: solicitud de préstamo bajo carga
+  // Escenario: login + solicitud de préstamo
   val solicitudPrestamo = scenario("Solicitud de Préstamo Bajo Carga")
+    // 🔹 Paso 1: login (autenticación previa)
+    .exec(
+      http("Login")
+        .post("/login.htm")
+        .formParam("username", username)
+        .formParam("password", password)
+        .check(status.is(200))
+    )
+    .pause(1.second)
+    // 🔹 Paso 2: solicitud de préstamo
     .exec(
       http("POST Solicitud de Préstamo")
-        .post("/requestloan")
-        .formParam("customerId", username)
+        .post("/requestloan.htm")
         .formParam("amount", amount * 500)
         .formParam("downPayment", amount * 50)
         .formParam("fromAccountId", fromAccountId)
         .check(status.is(200))
-        .check(regex("Loan Request Processed").exists) 
+        .check(regex("Loan Request Processed").exists)
     )
     .pause(1.second)
 
-  // Configuración de usuarios y carga
   setUp(
     solicitudPrestamo.inject(
       rampUsers(150) during (30.seconds)
