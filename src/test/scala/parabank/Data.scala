@@ -6,6 +6,9 @@ object Data {
   // Nota: Gatling añadirá las rutas (/login, /transfer, etc.)
   val url: String = "https://parabank.parasoft.com/parabank/services/bank"
 
+    // 🔹 URL base del formulario web (para endpoints tipo .htm)
+  val loanUrl: String = "https://parabank.parasoft.com/parabank"
+
   // 🔹 Credenciales de prueba
   val username: String = "albert"
   val password: String = "123"
@@ -20,3 +23,4 @@ object Data {
   // 🔹 Listado de cuentas disponibles (opcional)
   val allAccounts: Seq[String] = Seq("14343", "14565", "26553", "26664", "26775")
 }
+
