@@ -12,7 +12,7 @@ class CargaSolicitudPrestamo extends Simulation {
     .acceptHeader("application/json, text/plain, */*")
     .userAgentHeader("Gatling")
     .disableWarmUp
-
+  
   // Feeder para variar montos de préstamo y cuota inicial
   val loanFeeder = Iterator.continually(
     Map(
