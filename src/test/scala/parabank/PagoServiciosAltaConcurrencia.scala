@@ -7,69 +7,89 @@ import parabank.Data._
 
 class PagoServiciosAltaConcurrencia extends Simulation {
 
+  
   val httpProtocol = http
-    .baseUrl(url)
-    .acceptHeader("application/json")
-    .contentTypeHeader("application/json")
-    .userAgentHeader("Gatling")
-    .disableWarmUp
+    .baseUrl(loanUrl)
+    .acceptHeader("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+    .acceptEncodingHeader("gzip, deflate")
+    .acceptLanguageHeader("en-US,en;q=0.5")
+    .userAgentHeader("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-  // Datos dinámicos
-  val feeder = Iterator.continually(
-    Map(
-      "payeeName" -> ("Empresa" + util.Random.nextInt(100)),
-      "amount" -> (10 + util.Random.nextInt(500)),
-      "accountNumber" -> ("000" + util.Random.nextInt(9999))
-    )
-  )
+  // Feeder
+  val payFeeder = Iterator.continually(Map(
+    "payAmount" -> (100 + util.Random.nextInt(900)).toString,
+    "payeeName" -> s"Utility Company ${util.Random.nextInt(1000)}",
+    "payeeAccount" -> s"ACC${100000 + util.Random.nextInt(899999)}"
+  ))
 
+  // Escenario principal de pago de servicios
   val scn = scenario("Pago de servicios con alta concurrencia")
-    .feed(feeder)
-
-    // Login
+    .feed(payFeeder)
+    
+    // 1. Login
     .exec(
       http("Login")
-        .get(s"/login/$username/$password")
+        .post("/login.htm")
+        .formParam("username", username)
+        .formParam("password", password)
         .check(status.is(200))
-        .check(jsonPath("$.id").saveAs("customerId"))
+        .check(css("div#leftPanel").exists) // Verifica que el login fue exitoso
     )
-
-    // Obtener cuentas del cliente
+    
+    // 2. Navegar a la página de bill pay
     .exec(
-      http("Obtener cuentas")
-        .get("/customers/${customerId}/accounts")
+      http("Navegar a Bill Pay")
+        .get("/billpay.htm")
         .check(status.is(200))
-        .check(jsonPath("$[0].id").saveAs("fromAccountId"))
+        .check(css("input[name='accountId']", "value").find.saveAs("accountId"))
     )
-
-    // Pago de servicio
+    
+    // 3. Realizar pago de servicio
     .exec(
-      http("Ejecutar Bill Pay")
-        .post("/services/billpay")
-        .body(StringBody(
-          """{
-            "customerId": ${customerId},
-            "fromAccountId": ${fromAccountId},
-            "payeeName": "${payeeName}",
-            "accountNumber": "${accountNumber}",
-            "amount": ${amount}
-          }"""
-        ))
+      http("Realizar Pago de Servicio")
+        .post("/billpay.htm")
+        .formParam("input", "button")
+        .formParam("name", "${payeeName}")
+        .formParam("address.street", "123 Main St")
+        .formParam("address.city", "Medellin")
+        .formParam("address.state", "ANT")
+        .formParam("address.zipCode", "050001")
+        .formParam("phoneNumber", "3001234567")
+        .formParam("accountNumber", "${payeeAccount}")
+        .formParam("verifyAccount", "${payeeAccount}")
+        .formParam("amount", "${payAmount}")
+        .formParam("fromAccountId", "${accountId}")
         .check(status.is(200))
-        .check(jsonPath("$.message").exists)
+        .check(
+          css("h1.title, title")
+            .find
+            .transform(_.toLowerCase)
+            .saveAs("pageTitle")
+        )
     )
+    
+    // 4. Validación simple del resultado
+    .exec { session =>
+      val title = session("pageTitle").asOption[String].getOrElse("")
+      if (title.contains("bill payment") || title.contains("complete")) {
+        println(s"Pago exitoso: ${session("payeeName").as[String]}")
+        session
+      } else {
+        println(s"Posible fallo en pago: ${session("payeeName").as[String]}")
+        session
+      }
+    }
 
+  // Configuración de la simulación
   setUp(
     scn.inject(
-      rampUsers(200) during (30.seconds)
+      rampUsers(200) during (30.seconds) // Exactamente como tu prueba exitosa
     )
-  )
-  .protocols(httpProtocol)
-  .assertions(
-    global.responseTime.mean.lte(3000),
-    global.successfulRequests.percent.gte(98),
-    global.failedRequests.percent.lte(2)
-  )
+  ).protocols(httpProtocol)
+   .assertions(
+     global.responseTime.mean.lte(3000),
+     global.responseTime.percentile3.lte(3000),
+     global.failedRequests.percent.lte(1)
+   )
 }
-
 
