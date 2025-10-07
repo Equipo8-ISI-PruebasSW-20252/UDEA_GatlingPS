@@ -9,7 +9,13 @@ class PagoServiciosAltaConcurrencia extends Simulation {
 
   val httpProtocol = http
     .baseUrl(loanUrl) // ejemplo: "https://parabank.parasoft.com/parabank"
-    .inferHtmlResources()
+    // Excluir recursos estáticos
+    .inferHtmlResources(
+      BlackList(""".*\.css.*""", """.*\.js.*""", """.*\.png.*""", """.*\.jpg.*""", 
+                 """.*\.gif.*""", """.*\.ico.*""", """.*\.svg.*""", 
+                 """.*\.woff.*""", """.*\.ttf.*"""),
+      WhiteList()
+    )
     .acceptHeader("application/json, text/plain, */*")
     .contentTypeHeader("application/json")
     .userAgentHeader("Gatling")
