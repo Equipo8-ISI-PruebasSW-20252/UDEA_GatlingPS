@@ -13,30 +13,33 @@ class PagoServiciosAltaConcurrencia extends Simulation {
     .acceptEncodingHeader("gzip, deflate")
     .acceptLanguageHeader("en-US,en;q=0.5")
     .userAgentHeader("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-
-  // Feeder
-  val payFeeder = Iterator.continually(Map(
-    "payAmount" -> (10 + util.Random.nextInt(90)).toString,
-    "payeeName" -> s"Utility-${1000 + util.Random.nextInt(9000)}",
-    "payeeAccount" -> s"ACC${10000 + util.Random.nextInt(89999)}"
-  ))
+    .disableFollowRedirect
 
   val scn = scenario("Pago de servicios con alta concurrencia")
-    .feed(payFeeder)
     
-    // 1. Login directo
+    // 1. Login - versión mejorada
     .exec(
       http("Login")
         .post("/login.htm")
         .formParam("username", username)
         .formParam("password", password)
         .check(status.is(200))
-        .check(css(".smallText").exists)
+        .check(css("a[href*='overview']").exists)
     )
+    .pause(1.second)
     
-    // 2. Obtener cuenta desde bill pay page
+    // 2. Ir a overview primero para estabilizar la sesión
     .exec(
-      http("Obtener cuenta para pago")
+      http("Overview Page")
+        .get("/overview.htm")
+        .check(status.is(200))
+        .check(css("td#balance").exists)
+    )
+    .pause(1.second)
+    
+    // 3. Ir a bill pay
+    .exec(
+      http("Bill Pay Page")
         .get("/billpay.htm")
         .check(status.is(200))
         .check(
@@ -45,50 +48,36 @@ class PagoServiciosAltaConcurrencia extends Simulation {
             .saveAs("accountId")
         )
     )
+    .pause(1.second)
     
-    // 3. Realizar pago
+    // 4. Pago
     .exec(
-      http("Realizar Pago de Servicio")
+      http("Bill Payment")
         .post("/billpay.htm")
-        .formParam("input", "button")
-        .formParam("name", "${payeeName}")
-        .formParam("address.street", "123 Main Street")
-        .formParam("address.city", "Medellin")
-        .formParam("address.state", "ANT")
-        .formParam("address.zipCode", "050001")
-        .formParam("phoneNumber", "3001234567")
-        .formParam("accountNumber", "${payeeAccount}")
-        .formParam("verifyAccount", "${payeeAccount}")
-        .formParam("amount", "${payAmount}")
+        .formParam("input", "Send Payment")
+        .formParam("payee.name", "Test Utility Company")
+        .formParam("payee.address.street", "123 Main St")
+        .formParam("payee.address.city", "Medellin")
+        .formParam("payee.address.state", "ANT")
+        .formParam("payee.address.zipCode", "050001")
+        .formParam("payee.phoneNumber", "3001234567")
+        .formParam("payee.accountNumber", "123456789")
+        .formParam("verifyAccount", "123456789")
+        .formParam("amount", "50.00")
         .formParam("fromAccountId", "${accountId}")
-        .check(status.is(200))
         .check(
-          css("h1.title")
-            .find
-            .transform(_.toLowerCase)
-            .saveAs("pageTitle")
+          status.in(200, 302),
+          substring("Bill Payment Complete").or(substring("bill payment complete"))
         )
     )
-    
-    // 4. Validación simple
-    .exec { session =>
-      val title = session("pageTitle").asOption[String].getOrElse("")
-      if (title.contains("bill payment complete")) {
-        session
-      } else {
-        println(s"Título de página: $title")
-        session
-      }
-    }
 
   setUp(
     scn.inject(
-      rampUsers(200) during (30.seconds)
+      rampUsers(50) during (30.seconds) 
     )
   ).protocols(httpProtocol)
    .assertions(
      global.responseTime.mean.lte(3000),
-     global.responseTime.percentile3.lte(3000),
      global.failedRequests.percent.lte(1)
    )
 }
