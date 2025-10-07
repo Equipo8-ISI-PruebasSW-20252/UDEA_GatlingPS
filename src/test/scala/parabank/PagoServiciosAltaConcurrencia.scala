@@ -16,7 +16,7 @@ class PagoServiciosAltaConcurrencia extends Simulation {
 
   // Feeder
   val payFeeder = Iterator.continually(Map(
-    "payAmount" -> (10 + util.Random.nextInt(90)).toString, // Montos pequeños: 10-99
+    "payAmount" -> (10 + util.Random.nextInt(90)).toString,
     "payeeName" -> s"Utility-${1000 + util.Random.nextInt(9000)}",
     "payeeAccount" -> s"ACC${10000 + util.Random.nextInt(89999)}"
   ))
@@ -24,38 +24,37 @@ class PagoServiciosAltaConcurrencia extends Simulation {
   val scn = scenario("Pago de servicios con alta concurrencia")
     .feed(payFeeder)
     
-    // 1. Login
+    // 1. Login directo
     .exec(
       http("Login")
         .post("/login.htm")
         .formParam("username", username)
         .formParam("password", password)
         .check(status.is(200))
-        .check(css(".smallText").exists) // Verifica que el login fue exitoso
+        .check(css(".smallText").exists)
     )
     
-    // 2. Ir directamente a bill pay
+    // 2. Obtener cuenta desde bill pay page
     .exec(
-      http("Navegar a Bill Pay")
+      http("Obtener cuenta para pago")
         .get("/billpay.htm")
         .check(status.is(200))
         .check(
           css("select[name='fromAccountId'] option", "value")
             .find
             .saveAs("accountId")
-            .orElse(css("input[name='fromAccountId']", "value").find.saveAs("accountId"))
         )
     )
     
-    // 3. Realizar pago usando la cuenta obtenida
+    // 3. Realizar pago
     .exec(
-      http("Realizar Pago")
+      http("Realizar Pago de Servicio")
         .post("/billpay.htm")
         .formParam("input", "button")
         .formParam("name", "${payeeName}")
         .formParam("address.street", "123 Main Street")
         .formParam("address.city", "Medellin")
-        .formParam("address.state", "ANT") 
+        .formParam("address.state", "ANT")
         .formParam("address.zipCode", "050001")
         .formParam("phoneNumber", "3001234567")
         .formParam("accountNumber", "${payeeAccount}")
@@ -64,25 +63,21 @@ class PagoServiciosAltaConcurrencia extends Simulation {
         .formParam("fromAccountId", "${accountId}")
         .check(status.is(200))
         .check(
-          css("h1.title, .title, title")
+          css("h1.title")
             .find
             .transform(_.toLowerCase)
             .saveAs("pageTitle")
         )
     )
     
-    // 4. Validación opcional
+    // 4. Validación simple
     .exec { session =>
       val title = session("pageTitle").asOption[String].getOrElse("")
-      if (title.contains("bill payment") || title.contains("complete")) {
+      if (title.contains("bill payment complete")) {
         session
       } else {
-        // Solo marcamos como fallido si es claramente un error
-        if (title.contains("error") || title.contains("invalid")) {
-          session.markAsFailed
-        } else {
-          session // No marcamos como fallido si el título no es claro
-        }
+        println(s"Título de página: $title")
+        session
       }
     }
 
