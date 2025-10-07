@@ -7,67 +7,60 @@ import parabank.Data._
 
 class CargaSolicitudPrestamo extends Simulation {
 
-  // Usar SIEMPRE la API REST para pruebas de carga
   val httpProtocol = http
-    .baseUrl(url) // <- https://parabank.parasoft.com/parabank/services/bank
+    .baseUrl(url)
     .acceptHeader("application/json, text/plain, */*")
     .userAgentHeader("Gatling")
     .disableWarmUp
 
-  // Genera montos variados para cubrir casos realistas
+  // Feeder para variar montos de préstamo y cuota inicial
   val loanFeeder = Iterator.continually(
     Map(
-      "amount"       -> (1000 + util.Random.nextInt(7000)), // 1000–8000
-      "downPayment"  -> (100  + util.Random.nextInt(900))   // 100–1000
+      "amount"      -> (1000 + util.Random.nextInt(7000)), // 1000–8000
+      "downPayment" -> (100  + util.Random.nextInt(900))   // 100–1000
     )
   )
 
-  /** Flujo:
-    * 1) Login -> guarda customerId
-    * 2) Obtiene cuentas del cliente -> guarda fromAccountId
-    * 3) POST /requestLoan con params (customerId, fromAccountId, amount, downPayment)
-    * 4) Checks: HTTP 200 y body con Approved/Denied (respuesta válida)
-    */
-  val solicitudPrestamo =
+  val scn =
     scenario("Solicitud de préstamo bajo carga")
       .feed(loanFeeder)
-      // 1) Login
+      // 1) Login -> customerId
       .exec(
         http("Login")
           .get(s"/login/$username/$password")
           .check(status.is(200))
           .check(jsonPath("$.id").saveAs("customerId"))
       )
-      // 2) Cuentas del cliente
+      // 2) Cuentas del cliente -> fromAccountId
       .exec(
         http("Cuentas del cliente")
           .get("/customers/${customerId}/accounts")
           .check(status.is(200))
-          // toma la primera cuenta válida
           .check(jsonPath("$[0].id").saveAs("fromAccountId"))
       )
-      // 3) Request Loan (POST con query params)
+      // 3) Solicitud de préstamo (POST con query params)
       .exec(
         http("Request Loan")
           .post("/requestLoan")
-          .queryParam("customerId", "${customerId}")
-          .queryParam("fromAccountId", "${fromAccountId}")
-          .queryParam("amount", "${amount}")
-          .queryParam("downPayment", "${downPayment}")
+          .queryParam("customerId",   "${customerId}")
+          .queryParam("fromAccountId","${fromAccountId}")
+          .queryParam("amount",       "${amount}")
+          .queryParam("downPayment",  "${downPayment}")
           .check(status.is(200))
-          .check(regex("Approved|Denied").exists) // respuesta válida (sin errores)
+          // ✅ El servicio responde JSON con booleano "approved"
+          .check(jsonPath("$.approved").exists)
+          .check(jsonPath("$.approved").saveAs("approved"))
       )
 
-  // Inyección de usuarios y aserciones de tu HU
   setUp(
-    solicitudPrestamo.inject(
-      rampUsers(150) during (30.seconds)   // 150 concurrentes gradualmente en 30s
+    scn.inject(
+      rampUsers(150) during (30.seconds) // 150 concurrentes en 30s
     )
   )
   .protocols(httpProtocol)
   .assertions(
-    global.responseTime.mean.lte(5000),         // promedio ≤ 5s
-    global.successfulRequests.percent.gte(98),  // éxito ≥ 98 %
-    global.failedRequests.percent.lte(2)        // errores inesperados ≤ 2 %
+    global.responseTime.mean.lte(5000),         // ≤ 5 s
+    global.successfulRequests.percent.gte(98),  // ≥ 98 %
+    global.failedRequests.percent.lte(2)        // ≤ 2 %
   )
 }
