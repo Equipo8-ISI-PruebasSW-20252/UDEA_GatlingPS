@@ -91,4 +91,5 @@ class PagoServiciosAltaConcurrencia extends Simulation {
      global.responseTime.percentile3.lte(3000),
      global.failedRequests.percent.lte(1)
    )
+  
 }
