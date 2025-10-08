@@ -14,13 +14,14 @@ object Data {
   val password: String = "123"
 
   // 🔹 Cuentas disponibles para pruebas de transferencia
-  // 14343: saldo negativo (emisor)
-  // 14565: cuenta con fondos (receptor)
-  val fromAccountId: String = "14565"   // cuenta con fondos disponibles
-  val toAccountId: String = "14343"     // cuenta destino
+  // 18117: saldo negativo (emisor)
+  // 18561: cuenta con fondos (receptor)
+  val fromAccountId: String = "18561"   // cuenta con fondos disponibles
+  val toAccountId: String = "18117"     // cuenta destino
   val amount: Int = 10                  // monto a transferir
 
   // 🔹 Listado de cuentas disponibles (opcional)
-  val allAccounts: Seq[String] = Seq("14343", "14565", "26553", "26664", "26775")
+  val allAccounts: Seq[String] = Seq("18006", "18117", "18228", "18339", "18450")
 }
+
 
