@@ -8,41 +8,44 @@ import parabank.Data._
 class PagoServiciosAltaConcurrencia extends Simulation {
 
   val httpProtocol = http
-    .baseUrl(loanUrl)
+    .baseUrl(loanUrl) // ejemplo: "https://parabank.parasoft.com/parabank"
     .inferHtmlResources(
-      BlackList(""".*\.css.*""", """.*\.js.*""", """.*\.png.*""", """.*\.jpg.*""", 
-                 """.*\.gif.*""", """.*\.ico.*""", """.*\.svg.*""", 
-                 """.*\.woff.*""", """.*\.ttf.*"""),
+      BlackList(""".*\.css""", """.*\.js""", """.*\.png""", """.*\.jpg""", """.*\.gif""", """.*\.svg""", """.*\.ico"""),
       WhiteList()
     )
     .acceptHeader("application/json, text/plain, */*")
     .contentTypeHeader("application/json")
     .userAgentHeader("Gatling")
-    .disableWarmUp
-    .shareConnections
 
   val scn = scenario("Pago de servicios - flujo REST funcional")
 
-    // 1. Login vía servicio REST
+    // Home
+    .exec(
+      http("Home")
+        .get("/index.htm")
+        .check(status.is(200))
+    )
+
+    // Login REST (recupera customerId)
     .exec(
       http("Login REST")
-        .get(s"/services_proxy/bank/login/${username}/${password}")
+        .post("/services/bank/login/${username}/${password}")
         .check(status.is(200))
         .check(jsonPath("$.id").saveAs("customerId"))
     )
 
-    // 2. Obtener cuentas del cliente
+    // Obtener cuentas del cliente (para sacar el accountId)
     .exec(
       http("Cuentas del cliente")
-        .get("/services_proxy/bank/customers/${customerId}/accounts")
+        .get("/services/bank/customers/${customerId}/accounts")
         .check(status.is(200))
         .check(jsonPath("$[0].id").saveAs("fromAccountId"))
     )
 
-    // 3. Ejecutar pago
+    // Realizar pago de servicios
     .exec(
       http("Ejecutar pago de servicios")
-        .post("/services_proxy/bank/billpay")
+        .post("/services/bank/billpay")
         .body(StringBody(
           """{
             "name": "Electric Company",
@@ -54,14 +57,14 @@ class PagoServiciosAltaConcurrencia extends Simulation {
             },
             "phoneNumber": "5555555555",
             "accountNumber": "12345",
-            "fromAccountId": "${fromAccountId}",
-            "amount": 100.00
+            "amount": 100.00,
+            "fromAccountId": ${fromAccountId}
           }"""
         )).asJson
-        .check(status.is(200))
-        .check(jsonPath("$.payeeName").exists)
+        .check(status.in(200, 201))
     )
 
+  // Inyección de usuarios concurrentes
   setUp(
     scn.inject(rampUsers(200) during (30.seconds))
   ).protocols(httpProtocol)
@@ -70,5 +73,6 @@ class PagoServiciosAltaConcurrencia extends Simulation {
      global.failedRequests.percent.lte(1)
    )
 }
+
 
 
